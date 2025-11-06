@@ -36,20 +36,25 @@ const AllocateurPile = struct {
         alignment: std.mem.Alignment,
         return_address: usize,
     ) ?[*]u8 {
-        // le paramètre `return_address` peut être ignoré dans ce contexte
         _ = return_address;
 
-        // récupère un pointeur vers l’instance de notre allocateur
         const self: *AllocateurPile = @ptrCast(@alignCast(ctx));
 
-        // par la suite, `self.buffer` et `self.next` désignent les deux
-        // champs de l’allocateur
+        const base_addr = @intFromPtr(&self.buffer[0]);
 
-        // (SUPPRIMER LES LIGNES SUIVANTES ET COMPLÉTER!)
-        _ = self;
-        _ = len;
-        _ = alignment;
-        return null;
+        const curr_addr = base_addr + self.next;
+        const aligned_addr = std.mem.alignForward(usize, curr_addr, alignment.toByteUnits());
+
+        const offset = aligned_addr - base_addr;
+        const new_next = offset + len;
+
+        if (new_next > self.buffer.len) {
+            return null;
+        }
+
+        self.next = new_next;
+
+        return @ptrFromInt(aligned_addr);
     }
 };
 
