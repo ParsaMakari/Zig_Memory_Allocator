@@ -49,20 +49,43 @@ const AllocateurEtiquette = struct {
         // récupère un pointeur vers l’instance de notre allocateur
         const self: *AllocateurEtiquette = @ptrCast(@alignCast(ctx));
 
-        // par la suite, `self.buffer` et `self.next` désignent les deux
-        // champs de l’allocateur
+        const base_addr = @intFromPtr(&self.buffer[0]);
+        const size_of_header = @sizeOf(Header);
 
-        // (SUPPRIMER LES LIGNES SUIVANTES ET COMPLÉTER!)
-        _ = self;
-        _ = len;
-        _ = alignment;
-        return null;
+        const curr_addr = base_addr + self.next;
+        const aligned_addr = std.mem.alignForward(
+            usize, 
+            curr_addr + size_of_header, 
+            @max(
+                alignment.toByteUnits(),
+                @alignOf(Header)
+                )
+            );
+
+        const offset = aligned_addr - base_addr;
+        const new_next = offset + len;
+
+        if (new_next > self.buffer.len) {
+            return null;
+        }
+        
+        const header_address = aligned_addr - size_of_header; 
+        const header_ptr: *Header = @ptrFromInt(header_address);
+        header_ptr.*= .{
+            .len = len,
+            .free = false,
+        };
+        
+        self.next = new_next;
+
+        return @ptrFromInt(aligned_addr);
     }
 
     /// Récupère l’en-tête associé à l’allocation débutant à l’adresse `ptr`.
     fn getHeader(ptr: [*]u8) *Header {
-        // (SUPPRIMER LES LIGNES SUIVANTES ET COMPLÉTER!)
-        return @ptrCast(@alignCast(ptr));
+        const ptr_address = @intFromPtr(ptr);
+        const header_address = ptr_address - @sizeOf(Header);
+        return @ptrFromInt(header_address); 
     }
 
     /// Marque un bloc de mémoire précédemment alloué comme étant libre.
@@ -78,8 +101,11 @@ const AllocateurEtiquette = struct {
         _ = alignment;
         _ = return_address;
 
-        // (SUPPRIMER LES LIGNES SUIVANTES ET COMPLÉTER!)
-        _ = buf;
+        const buffer_ptr = buf.ptr; 
+        const mem_add_to_free = @intFromPtr(buffer_ptr);
+        const header_address = mem_add_to_free - @sizeOf(Header);
+        const header_ptr : *Header = @ptrFromInt(header_address);
+        header_ptr.free = true;
     }
 };
 
