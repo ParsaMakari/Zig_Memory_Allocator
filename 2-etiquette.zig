@@ -105,7 +105,7 @@ const AllocateurEtiquette = struct {
         const mem_add_to_free = @intFromPtr(buffer_ptr);
         const header_address = mem_add_to_free - @sizeOf(Header);
         const header_ptr : *Header = @ptrFromInt(header_address);
-        header_ptr.free = true;
+        header_ptr.*.free = true;
     }
 };
 
