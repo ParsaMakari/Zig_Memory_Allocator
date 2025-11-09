@@ -51,18 +51,76 @@ const AllocateurRecycle = struct {
 
         // par la suite, `self.buffer` et `self.next` désignent les deux
         // champs de l’allocateur
+        const base_addr = @intFromPtr(&self.buffer[0]);
+        
+        if(self.next == 0){
+           const aligned_addr : usize = base_addr + @sizeOf(Header);
+           const offset = aligned_addr - base_addr; 
+           const new_next = offset + len; 
+           if(new_next > self.buffer.len){
+               return null;
+            }
+           const header_addr_ptr :*Header= @ptrFromInt(base_addr); 
+           header_addr_ptr.* = .{
+               .len = len,
+               .free = false,
+            };
+           self.next = new_next;
+           return @ptrFromInt(aligned_addr); 
+        }else {
+            var curr_header_ptr: ?*Header = @ptrFromInt(base_addr);
+            var curr_header: ?Header = null;
+            while(curr_header_ptr != null){
+                curr_header = curr_header_ptr.*;
+                const curr_header_addr = @intFromPtr(curr_header_ptr);
+                if(curr_header.free and curr_header.len >= len){
+                    curr_header.free = false;
+                    curr_header.len = len; 
+                    return @ptrFromInt(curr_header_addr + @sizeOf(Header));
+                }
+                const temp : usize = curr_header_addr + @sizeOf(Header) + curr_header.len;
+                const next_addr = std.mem.alignForward(
+                    usize, 
+                    temp,
+                    header_alignment.toByteUnits());
+                curr_header_ptr = @ptrFromInt(next_addr);
+            }
+            
+            const curr_addr = base_addr + self.next;
+            const aligned_addr = std.mem.alignForward(
+                usize, 
+                curr_addr + @sizeOf(Header), 
+                @max(
+                    alignment.toByteUnits(),
+                    @alignOf(Header)
+                )
+            );
 
-        // (SUPPRIMER LES LIGNES SUIVANTES ET COMPLÉTER!)
-        _ = self;
-        _ = len;
-        _ = alignment;
-        return null;
+            const offset = aligned_addr - base_addr;
+            const new_next = offset + len;
+
+            if (new_next > self.buffer.len) {
+                return null;
+            }
+
+            const header_address = aligned_addr - @sizeOf(Header); 
+            const header_ptr: *Header = @ptrFromInt(header_address);
+            header_ptr.*= .{
+                .len = len,
+                .free = false,
+            };
+
+            self.next = new_next;
+
+            return @ptrFromInt(aligned_addr);
+        }
     }
 
     /// Récupère l’en-tête associé à l’allocation débutant à l’adresse `ptr`.
     fn getHeader(ptr: [*]u8) *Header {
-        // (SUPPRIMER LES LIGNES SUIVANTES ET COMPLÉTER!)
-        return @ptrCast(@alignCast(ptr));
+        const ptr_address = @intFromPtr(ptr);
+        const header_address = ptr_address - @sizeOf(Header);
+        return @ptrFromInt(header_address); 
     }
 
     /// Marque un bloc de mémoire précédemment alloué comme étant libre.
@@ -78,8 +136,11 @@ const AllocateurRecycle = struct {
         _ = alignment;
         _ = return_address;
 
-        // (SUPPRIMER LES LIGNES SUIVANTES ET COMPLÉTER!)
-        _ = buf;
+        const buffer_ptr = buf.ptr; 
+        const mem_add_to_free = @intFromPtr(buffer_ptr);
+        const header_address = mem_add_to_free - @sizeOf(Header);
+        const header_ptr : *Header = @ptrFromInt(header_address);
+        header_ptr.*.free = true;
     }
 };
 
