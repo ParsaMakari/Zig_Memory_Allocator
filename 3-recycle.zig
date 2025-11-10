@@ -52,9 +52,10 @@ const AllocateurRecycle = struct {
         // par la suite, `self.buffer` et `self.next` désignent les deux
         // champs de l’allocateur
         const base_addr = @intFromPtr(&self.buffer[0]);
+        const size_of_header = @sizeOf(Header);
         
         if(self.next == 0){
-           const aligned_addr : usize = base_addr + @sizeOf(Header);
+           const aligned_addr : usize = base_addr + size_of_header;
            const offset = aligned_addr - base_addr; 
            const new_next = offset + len; 
            if(new_next > self.buffer.len){
@@ -68,28 +69,27 @@ const AllocateurRecycle = struct {
            self.next = new_next;
            return @ptrFromInt(aligned_addr); 
         }else {
-            var curr_header_ptr: ?*Header = @ptrFromInt(base_addr);
-            var curr_header: ?Header = null;
-            while(curr_header_ptr != null){
-                curr_header = curr_header_ptr.*;
-                const curr_header_addr = @intFromPtr(curr_header_ptr);
-                if(curr_header.free and curr_header.len >= len){
-                    curr_header.free = false;
-                    curr_header.len = len; 
-                    return @ptrFromInt(curr_header_addr + @sizeOf(Header));
+            var curr_header: *Header = @ptrFromInt(base_addr);
+            var curr_addr = base_addr;
+            const self_next_add = base_addr + self.next;
+            while(curr_addr < self_next_add){ 
+                if(curr_header.*.free and curr_header.*.len >= len){
+                    curr_header.*.free = false;
+                    curr_header.*.len = len;
+                    return @ptrFromInt(curr_addr + size_of_header);
                 }
-                const temp : usize = curr_header_addr + @sizeOf(Header) + curr_header.len;
-                const next_addr = std.mem.alignForward(
-                    usize, 
-                    temp,
-                    header_alignment.toByteUnits());
-                curr_header_ptr = @ptrFromInt(next_addr);
+                curr_addr = std.mem.alignForward(
+                    usize,
+                    curr_addr + size_of_header + curr_header.*.len,
+                    header_alignment.toByteUnits()
+                    );
+                curr_header = @ptrFromInt(curr_addr);
             }
-            
-            const curr_addr = base_addr + self.next;
+             
+            curr_addr = base_addr + self.next;
             const aligned_addr = std.mem.alignForward(
                 usize, 
-                curr_addr + @sizeOf(Header), 
+                curr_addr + size_of_header, 
                 @max(
                     alignment.toByteUnits(),
                     @alignOf(Header)
@@ -103,7 +103,7 @@ const AllocateurRecycle = struct {
                 return null;
             }
 
-            const header_address = aligned_addr - @sizeOf(Header); 
+            const header_address = aligned_addr - size_of_header; 
             const header_ptr: *Header = @ptrFromInt(header_address);
             header_ptr.*= .{
                 .len = len,
@@ -113,6 +113,7 @@ const AllocateurRecycle = struct {
             self.next = new_next;
 
             return @ptrFromInt(aligned_addr);
+
         }
     }
 
