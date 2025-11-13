@@ -75,7 +75,6 @@ const AllocateurRecycle = struct {
             while(curr_addr < self_next_add){ 
                 if(curr_header.*.free and curr_header.*.len >= len){
                     curr_header.*.free = false;
-                    curr_header.*.len = len;
                     return @ptrFromInt(curr_addr + size_of_header);
                 }
                 curr_addr = std.mem.alignForward(
